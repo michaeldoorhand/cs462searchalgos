@@ -2,6 +2,9 @@ import random
 import sys
 import time
 import array
+from collections import deque
+from itertools import cycle
+import heapq
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
@@ -27,6 +30,16 @@ def get_data():
     except FileNotFoundError:
         print(file1_name, "not found")
 
+    sorted_adj = {}
+    for items in adj.items():
+        #print(items)
+        #key = items[0]
+        items[1].sort()
+        #sorted_adj[key] = values
+    #adj = sorted_adj
+    print(adj)
+
+
     file2_name = "Coordinates.csv"
     coords = {}
     try:
@@ -39,6 +52,7 @@ def get_data():
         print(file2_name, "not found")
 
     return([adj,coords])
+
 
 def calculate_distance(coord1,coord2):
     x1, y1 = coord1
@@ -77,13 +91,13 @@ def calculate_total_distance(coords, path):
     return total_distance
 
 
-def plot_path(coords, path, time_delay):
+def plot_path(coords, adj, path, time_delay):
     # Extract x and y coordinates from the 'coords' dictionary
     x = [float(coord[0]) for coord in coords.values()]
     y = [float(coord[1]) for coord in coords.values()]
 
     # Initialize the figure and axis
-    fig, ax = plt.subplots(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(12, 8))
     ax.set_title('Path Plot', fontsize=20)
     ax.set_xlabel('x', fontsize=15)
     ax.set_ylabel('y', fontsize=15)
@@ -95,8 +109,14 @@ def plot_path(coords, path, time_delay):
     for label, x_coord, y_coord in zip(coords.keys(), x, y):
         ax.annotate(label, xy=(x_coord, y_coord))
 
-    # Initialize an empty line for the path
-    line, = ax.plot([], [], linestyle='-', color='red', linewidth=2)
+    # Create initial light grey lines connecting adjacent nodes
+    for city, neighbors in adj.items():
+        x_coord, y_coord = float(coords[city][0]), float(coords[city][1])
+        for neighbor in neighbors:
+            neighbor_x, neighbor_y = float(coords[neighbor][0]), float(coords[neighbor][1])
+            plt.plot([x_coord, neighbor_x], [y_coord, neighbor_y], linestyle='-', color='lightgrey', linewidth=1)
+        # Initialize an empty line for the path
+        line, = ax.plot([], [], linestyle='-', color='red', linewidth=2)
 
     # Lists to store accumulated line data
     accumulated_x = []
@@ -108,8 +128,9 @@ def plot_path(coords, path, time_delay):
             nonlocal total_distance  # Declare total_distance as nonlocal to modify it within the function
 
             # Get the coordinates of the current city
+            # print(path[frame])
             current_city = path[frame]
-            print('current city is ' + current_city)
+            # print('current city is ' + current_city)
 
             current_coord = coords[current_city]
             x_coord, y_coord = float(current_coord[0]), float(current_coord[1])
@@ -136,7 +157,7 @@ def plot_path(coords, path, time_delay):
     anim = FuncAnimation(fig, update, frames=len(path), repeat=False, interval=time_delay)
 
     # Show the final plot
-    plt.grid(True)
+    plt.grid(False)
     plt.show()
 
 def brute_force(start, end, adj, coords, visited=None, path=None):
@@ -160,6 +181,178 @@ def brute_force(start, end, adj, coords, visited=None, path=None):
     path.pop()  # Remove the last city from the path
     return False, []
             
+
+def breadth_first_search(start, end, adj, coords):
+    # Create a queue for BFS
+    queue = deque()
+    # Initialize visited set and path dictionary
+    visited = set()
+    path = {}
+
+    # Initialize the queue with the start node
+    queue.append(start)
+    visited.add(start)
+    path[start] = None
+
+    while queue:
+        current_city = queue.popleft()  # Dequeue the current city
+
+        # If we reach the end node, construct and return the path
+        print(current_city)
+        if current_city == end:
+            # Reconstruct the path from end to start
+            current = end
+            result_path = []
+            while current is not None:
+                result_path.append(current)
+                current = path[current]
+
+            return list(reversed(result_path))  # Reverse the path to start from the start node
+
+        for neighbor in adj[current_city]:
+            if neighbor not in visited:
+                queue.append(neighbor)
+                visited.add(neighbor)
+                path[neighbor] = current_city
+
+    # If no path is found
+    return None
+
+def depth_first_search(start, end, adj, coords):
+    # Initialize visited set and path dictionary
+    visited = set()
+    path = {}
+    
+    # Function to perform DFS recursively
+    def dfs(current_city):
+        visited.add(current_city)
+
+        # If we reach the end node, construct and return the path
+        if current_city == end:
+            return [end]
+
+        for neighbor in adj[current_city]:
+            if neighbor not in visited:
+                path[neighbor] = current_city
+                result = dfs(neighbor)
+                if result:
+                    return [current_city] + result
+
+        return None
+
+    # Start DFS from the start node
+    result_path = dfs(start)
+
+    if result_path:
+        return result_path  # Reverse the path to start from the start node
+    else:
+        return None  # If no path is found
+
+def iterative_deepening_dfs(start, end, adj, coords):
+    # Perform iterative deepening with increasing depth limits
+    max_depth = len(adj)  # Maximum depth is the number of cities
+    for depth_limit in range(1, max_depth + 1):
+        visited = set()
+        path = []
+        found, found_path = iddfs_recursive(start, end, adj, coords, visited, path, depth_limit)
+        if found:
+            return found_path
+
+    # If no path is found
+    return None
+
+def iddfs_recursive(current_city, end, adj, coords, visited, path, depth_limit):
+    if len(path) > depth_limit:
+        return False, []
+
+    visited.add(current_city)
+    path.append(current_city)
+
+    if current_city == end:
+        return True, path
+
+    for neighbor in adj[current_city]:
+        if neighbor not in visited:
+            found, found_path = iddfs_recursive(neighbor, end, adj, coords, visited, path, depth_limit)
+            if found:
+                return found, found_path
+
+    path.pop()
+    return False, []
+
+
+def best_first_search(start, end, adj, coords):
+    # Initialize a priority queue (min-heap) for BFS
+    priority_queue = [(calculate_distance(coords[start], coords[end]), start)]
+    visited = set()
+    path = {}
+
+    while priority_queue:
+        _, current_city = heapq.heappop(priority_queue)  # Dequeue the city with the lowest estimated distance
+
+        if current_city in visited:
+            continue
+
+        visited.add(current_city)
+
+        if current_city == end:
+            # Reconstruct the path from end to start
+            result_path = [end]
+            while result_path[-1] != start:
+                previous_city = path[result_path[-1]]
+                result_path.append(previous_city)
+            result_path.reverse()
+            return result_path
+
+        for neighbor in adj[current_city]:
+            if neighbor not in visited:
+                heapq.heappush(priority_queue, (calculate_distance(coords[neighbor], coords[end]), neighbor))
+                path[neighbor] = current_city
+
+    # If no path is found
+    return None
+
+def astar_search(start, end, adj, coords):
+    def heuristic(city):
+        # Calculate the Euclidean distance from 'city' to the 'end' city
+        return calculate_distance(coords[city], coords[end])
+
+    # Initialize the priority queue (min-heap) for A* search
+    priority_queue = [(0 + heuristic(start), 0, start)]  # Initial cost, g(n), is 0
+    visited = set()
+    g_values = {city: float('inf') for city in adj}
+    g_values[start] = 0
+    path = {}
+
+    while priority_queue:
+        _, cost, current_city = heapq.heappop(priority_queue)  # Dequeue the city with the lowest cost
+
+        if current_city in visited:
+            continue
+
+        visited.add(current_city)
+
+        if current_city == end:
+            # Reconstruct the path from end to start
+            result_path = [end]
+            while result_path[-1] != start:
+                previous_city = path[result_path[-1]]
+                result_path.append(previous_city)
+            result_path.reverse()
+            return result_path
+
+        for neighbor in adj[current_city]:
+            if neighbor not in visited:
+                tentative_g_value = g_values[current_city] + calculate_distance(coords[current_city], coords[neighbor])
+
+                if tentative_g_value < g_values[neighbor]:
+                    g_values[neighbor] = tentative_g_value
+                    heapq.heappush(priority_queue, (tentative_g_value + heuristic(neighbor), tentative_g_value, neighbor))
+                    path[neighbor] = current_city
+
+    # If no path is found
+    return None
+
 
 def main():
     data = get_data()
@@ -189,23 +382,40 @@ def main():
         case 1:
             print('yo')
             start_time = time.time()
-            results = brute_force(start,end,adj,coords)
+            results = brute_force(start, end, adj, coords)
+            #brute_force_plot(start, end, adj, coords, 1)
+            #brute_force_x(start, end, adj, coords)
+
         case 2:
             print('x')
+            start_time = time.time()
+            results = breadth_first_search(start, end, adj, coords)
         case 3:
+            start_time = time.time()
+            results = depth_first_search(start, end, adj, coords)
             print('x')
         case 4:
             print('x')
+            results = iterative_deepening_dfs(start, end, adj, coords)
+
         case 5:
             print('x')
+            results = best_first_search(start, end, adj, coords)
+
         case 6:
             print('x')
+            results = astar_search(start, end, adj, coords)
 
-    path = results[1]
+    if algo == 1:
+        path = results[1]
+    else:
+        path = results
     print(path)
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    plot_path(coords,path,1000)
+    print(adj)
+    #end_time = time.time()
+    #elapsed_time = end_time - start_time
+    #print(coords['Hays'])
+    plot_path(coords,adj,path,1000)
 
 
 
