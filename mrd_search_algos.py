@@ -3,6 +3,7 @@ import sys
 import time
 import array
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
 def get_data():
     file1_name = "Adjacencies.txt"
@@ -39,9 +40,9 @@ def get_data():
 
     return([adj,coords])
 
-def calculate_distance(city1,city2,coords):
-    x1, y1 = coords[city1]
-    x2, y2 = coords[city2]
+def calculate_distance(coord1,coord2):
+    x1, y1 = coord1
+    x2, y2 = coord2
     
     x1 = float(x1)
     x2 = float(x2)
@@ -76,50 +77,65 @@ def calculate_total_distance(coords, path):
     return total_distance
 
 
-def plot_path(coords, path, time):
-    x = []
-    y = []
+def plot_path(coords, path, time_delay):
+    # Extract x and y coordinates from the 'coords' dictionary
+    x = [float(coord[0]) for coord in coords.values()]
+    y = [float(coord[1]) for coord in coords.values()]
 
-    for city in coords:
-        city_coords = coords[city]
-        x.append(city_coords[0])
-        y.append(city_coords[1])
-    
-    data = {"x": [], "y": [], "label": []}
-    for label, coord in coords.items():
-        data["x"].append(float(coord[0]))
-        data["y"].append(float(coord[1]))
-        data["label"].append(label)
+    # Initialize the figure and axis
+    fig, ax = plt.subplots(figsize=(10, 8))
+    ax.set_title('Path Plot', fontsize=20)
+    ax.set_xlabel('x', fontsize=15)
+    ax.set_ylabel('y', fontsize=15)
 
     # Create a scatter plot
-    plt.figure(figsize=(8, 6))
-    plt.title('Scatter Plot', fontsize=20)
-    plt.xlabel('x', fontsize=15)
-    plt.ylabel('y', fontsize=15)
-    plt.scatter(data["x"], data["y"], marker='o')
+    scatter = ax.scatter(x, y, marker='o')
 
     # Add labels
-    for label, x, y in zip(data["label"], data["x"], data["y"]):
-        plt.annotate(label, xy=(x, y))
+    for label, x_coord, y_coord in zip(coords.keys(), x, y):
+        ax.annotate(label, xy=(x_coord, y_coord))
 
-    # Plot the path by connecting points in the order specified by 'path'
-    path_x = [data["x"][data["label"].index(city)] for city in path]
-    path_y = [data["y"][data["label"].index(city)] for city in path]
-    plt.plot(path_x, path_y, linestyle='-', color='red', label='Path', linewidth=2)
+    # Initialize an empty line for the path
+    line, = ax.plot([], [], linestyle='-', color='red', linewidth=2)
 
+    # Lists to store accumulated line data
+    accumulated_x = []
+    accumulated_y = []
 
-    # Add text to the upper left of the figure
-    formatted_time = "{:.10f}".format(time)
-    plt.figtext(0.1, 0.95, 'Time Elapsed: ' + formatted_time + 's', fontsize=12, verticalalignment='top')
+    total_distance = 0
+    # Function to update the plot with the next point in the path
+    def update(frame):
+            nonlocal total_distance  # Declare total_distance as nonlocal to modify it within the function
 
-    # Add text to the upper right of the figure
-    total = calculate_total_distance(coords, path)
-    plt.figtext(0.9, 0.95, 'Distance traveled: ' + str(total), fontsize=12, verticalalignment='top', horizontalalignment='right')
+            # Get the coordinates of the current city
+            current_city = path[frame]
+            print('current city is ' + current_city)
 
-    # Add legend
-    plt.legend()
+            current_coord = coords[current_city]
+            x_coord, y_coord = float(current_coord[0]), float(current_coord[1])
 
-    # Show the plot
+            # Accumulate line data
+            accumulated_x.append(x_coord)
+            accumulated_y.append(y_coord)
+
+            # Update the line data
+            line.set_data(accumulated_x, accumulated_y)
+
+            # Calculate the distance to the next city
+            if current_city != path[-1]:
+                next_city = path[frame + 1]
+                next_coord = coords[next_city]
+                next_x, next_y = float(next_coord[0]), float(next_coord[1])
+                distance = calculate_distance((x_coord, y_coord), (next_x, next_y))
+                total_distance += distance
+
+            # Set the title to the current city name and the total distance
+            ax.set_title(f'Path Plot: {current_city} - Total Distance: {total_distance:.2f}')
+
+    # Create an animation using FuncAnimation
+    anim = FuncAnimation(fig, update, frames=len(path), repeat=False, interval=time_delay)
+
+    # Show the final plot
     plt.grid(True)
     plt.show()
 
@@ -149,24 +165,47 @@ def main():
     data = get_data()
     adj = data[0]
     coords = data[1]
-    #x = input('Please choose an algorithm ')
+    locations = coords.keys()
+    print('\n')
+    print('Eligible locations: ')
+    for location in coords.keys():
+        print(location, end=' ')
+    print('\n')
 
-    start_time = time.time()
+    print('Search Algorithms: ')
+    print('1| Blind Brute Force')
+    print('2| Breadth-first Search')
+    print('3| Depth-first Search')
+    print('4| ID-DFS Search')
+    print('5| Best First Search')
+    print('6| A* Search')
+    print('\n')
 
+    start = input('Please choose a starting location: ')
+    end = input('Please choose an ending location: ')
+    algo = int(input('Please choose a search algorithm (choose number): '))
 
-    a = brute_force('Hillsboro','Manhattan',adj,coords)
+    match algo:
+        case 1:
+            print('yo')
+            start_time = time.time()
+            results = brute_force(start,end,adj,coords)
+        case 2:
+            print('x')
+        case 3:
+            print('x')
+        case 4:
+            print('x')
+        case 5:
+            print('x')
+        case 6:
+            print('x')
 
+    path = results[1]
+    print(path)
     end_time = time.time()
     elapsed_time = end_time - start_time
-    formatted_time = "{:.10f}".format(elapsed_time)
-    print(f"Elapsed Time: {formatted_time} seconds")
-
-
-    path = a[1]
-    x = calculate_distance('Leon','Mayfield',coords)
-    total = calculate_total_distance(coords, path)
-    print(total)
-    plot_path(coords,path,elapsed_time)
+    plot_path(coords,path,1000)
 
 
 
