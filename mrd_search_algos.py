@@ -1,9 +1,5 @@
-import random
-import sys
 import time
-import array
 from collections import deque
-from itertools import cycle
 import heapq
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -32,12 +28,7 @@ def get_data():
 
     sorted_adj = {}
     for items in adj.items():
-        #print(items)
-        #key = items[0]
         items[1].sort()
-        #sorted_adj[key] = values
-    #adj = sorted_adj
-    print(adj)
 
 
     file2_name = "Coordinates.csv"
@@ -75,17 +66,24 @@ def calculate_total_distance(coords, path):
         city1 = path[i]
         city2 = path[i + 1]
 
-        print(city1 + ' to ' + city2)
-        distance = calculate_distance(city1,city2,coords)
+        # Extract coordinates for the two cities
+        coord1 = coords[city1]
+        coord2 = coords[city2]
 
+        # Calculate the distance between the two cities and add it to the total
+        distance = calculate_distance(coord1, coord2)
         total_distance += distance
 
     # Add the distance from the last city back to the starting city to complete the path
     first_city = path[0]
     last_city = path[-1]
 
-    distance = calculate_distance(first_city, last_city, coords)
+    # Extract coordinates for the first and last cities
+    first_coord = coords[first_city]
+    last_coord = coords[last_city]
 
+    # Calculate the distance from the last city back to the starting city and add it to the total
+    distance = calculate_distance(first_coord, last_coord)
     total_distance += distance
 
     return total_distance
@@ -125,13 +123,9 @@ def plot_path(coords, adj, path, time_delay):
     total_distance = 0
     # Function to update the plot with the next point in the path
     def update(frame):
-            nonlocal total_distance  # Declare total_distance as nonlocal to modify it within the function
 
             # Get the coordinates of the current city
-            # print(path[frame])
             current_city = path[frame]
-            # print('current city is ' + current_city)
-
             current_coord = coords[current_city]
             x_coord, y_coord = float(current_coord[0]), float(current_coord[1])
 
@@ -147,11 +141,9 @@ def plot_path(coords, adj, path, time_delay):
                 next_city = path[frame + 1]
                 next_coord = coords[next_city]
                 next_x, next_y = float(next_coord[0]), float(next_coord[1])
-                distance = calculate_distance((x_coord, y_coord), (next_x, next_y))
-                total_distance += distance
 
             # Set the title to the current city name and the total distance
-            ax.set_title(f'Path Plot: {current_city} - Total Distance: {total_distance:.2f}')
+            ax.set_title(f'Path Plot: {current_city}')
 
     # Create an animation using FuncAnimation
     anim = FuncAnimation(fig, update, frames=len(path), repeat=False, interval=time_delay)
@@ -198,7 +190,6 @@ def breadth_first_search(start, end, adj, coords):
         current_city = queue.popleft()  # Dequeue the current city
 
         # If we reach the end node, construct and return the path
-        print(current_city)
         if current_city == end:
             # Reconstruct the path from end to start
             current = end
@@ -359,64 +350,108 @@ def main():
     adj = data[0]
     coords = data[1]
     locations = coords.keys()
-    print('\n')
-    print('Eligible locations: ')
-    for location in coords.keys():
-        print(location, end=' ')
-    print('\n')
+    running = True
+    while running:
+        print('\n')
+        print('Eligible locations: ')
+        for location in coords.keys():
+            print(location, end=' ')
+        print('\n')
 
-    print('Search Algorithms: ')
-    print('1| Blind Brute Force')
-    print('2| Breadth-first Search')
-    print('3| Depth-first Search')
-    print('4| ID-DFS Search')
-    print('5| Best First Search')
-    print('6| A* Search')
-    print('\n')
+        print('Search Algorithms: ')
+        print('0| Use all algorithms and compare results (no graphing)')
+        print('1| Blind Brute Force')
+        print('2| Breadth-first Search')
+        print('3| Depth-first Search')
+        print('4| ID-DFS Search')
+        print('5| Best First Search')
+        print('6| A* Search')
+        print('')
+        user_input = False
+        while user_input == False:
+            start = input('Please choose a starting location: ')
+            if start not in adj.keys():
+                print('Incorrect start destination inputted, please try again')
+                continue
+            end = input('Please choose an ending location: ')
+            if end not in adj.keys():
+                print('Incorrect end destination inputted, please try again')
+                continue
+            algo = int(input('Please choose a search algorithm (choose number): '))
+            if algo < 0 or algo > 6:
+                print('Incorrect algorithm selected, please try again')
+                continue
+            user_input = True
+            print('')
+ 
 
-    start = input('Please choose a starting location: ')
-    end = input('Please choose an ending location: ')
-    algo = int(input('Please choose a search algorithm (choose number): '))
+        match algo:
+            case 0:
+                algorithms = [("Blind Brute Force", brute_force),("Breadth-first Search", breadth_first_search), ("Depth-first Search", depth_first_search),("ID-DFS Search", iterative_deepening_dfs), ("Best First Search", best_first_search),("A* Search", astar_search)]
+                algos_results = {}
+                for algo_name, algo_function in algorithms:
+                    start_time = time.perf_counter()
+                    results = algo_function(start, end, adj, coords)
+                    end_time = time.perf_counter()
+                    elapsed_time_ms = (end_time - start_time) * 1000
+                    if algo_name == 'Blind Brute Force':
+                        path = results[1]
+                    else:
+                        path = results
+                    algos_results[algo_name] = [path,elapsed_time_ms,calculate_total_distance(coords,path)]
+                    
+            case 1:
+                start_time = time.perf_counter()
+                results = brute_force(start, end, adj, coords)
+            case 2:
+                start_time = time.perf_counter()
+                results = breadth_first_search(start, end, adj, coords)
+            case 3:
+                start_time = time.perf_counter()
+                results = depth_first_search(start, end, adj, coords)
+            case 4:
+                start_time = time.perf_counter()
+                results = iterative_deepening_dfs(start, end, adj, coords)
+            case 5:
+                start_time = time.perf_counter()
+                results = best_first_search(start, end, adj, coords)
+            case 6:
+                start_time = time.perf_counter()
+                results = astar_search(start, end, adj, coords)
+        
+        if algo == 0:
+            for algo_name, (path, elapsed_time_ms, total_distance) in algos_results.items():
+                print(f'{algo_name} took {elapsed_time_ms:.4f}ms, Cities visited = {len(path)}, Distanced traveled = {total_distance:.2f}, and had the following path: ')
+                print(path)
+                print('________________________________________________________')
 
-    match algo:
-        case 1:
-            print('yo')
-            start_time = time.time()
-            results = brute_force(start, end, adj, coords)
-            #brute_force_plot(start, end, adj, coords, 1)
-            #brute_force_x(start, end, adj, coords)
+            sorted_results = sorted(algos_results.items(), key=lambda x: x[1][1])
 
-        case 2:
-            print('x')
-            start_time = time.time()
-            results = breadth_first_search(start, end, adj, coords)
-        case 3:
-            start_time = time.time()
-            results = depth_first_search(start, end, adj, coords)
-            print('x')
-        case 4:
-            print('x')
-            results = iterative_deepening_dfs(start, end, adj, coords)
+            print('\n')
+            print('')
+            for algo_name, (path, elapsed_time_ms, total_distance) in sorted_results:
+                print(f"{algo_name} took {elapsed_time_ms:.4f}ms to complete. Cities visited = {len(path)}, Distance traveled = {total_distance:.2f} ")
+        else:
+            if algo == 1:
+                path = results[1]
+            else:
+                path = results
 
-        case 5:
-            print('x')
-            results = best_first_search(start, end, adj, coords)
+            print(path)
+            #print(adj)
+            end_time = time.perf_counter()
+            
+            # Calculate the elapsed time in milliseconds
+            elapsed_time_ms = (end_time - start_time) * 1000      
+            print(f"Algorithm took {elapsed_time_ms:.2f}ms to complete. Cities visited = {len(path)}, Distance traveled = {calculate_total_distance(coords, path):.2f} ")
+            plot_path(coords,adj,path,1000)
 
-        case 6:
-            print('x')
-            results = astar_search(start, end, adj, coords)
-
-    if algo == 1:
-        path = results[1]
-    else:
-        path = results
-    print(path)
-    print(adj)
-    #end_time = time.time()
-    #elapsed_time = end_time - start_time
-    #print(coords['Hays'])
-    plot_path(coords,adj,path,1000)
+        print('')
+        print('Run again (Y)     Quit (X)')
+        end_choice = input()
 
 
+        if end_choice == 'X':
+            running = False
 
 main()
