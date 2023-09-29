@@ -10,7 +10,7 @@ Hello, this is my searching algorithms programs for CS462. In this program I imp
 
 As well as a way graph each individual algorithm or to run all of them and compare the results. Many parts of the 
 search algorithms themselves were built using a generative model as well as graphing algorithm, below I describe how
-I used the model to create this.
+I used the model to create this. I also had to add the city 'Hays' to coordinates.csv because it was missing.
 
 To create this program with the help of a generative model I first built all of the file input and built my initial
 coords and adjecncies dictionaries and laid out a simple user-io system. I started working on my own brute force implementation
